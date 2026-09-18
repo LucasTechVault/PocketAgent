@@ -65,4 +65,6 @@ class ArtifactRef(ContractModel):
     
     size_bytes: int | None = Field(default=None, ge=0) # greater or equal to 0
     
-    metadata: dict[str, JsonValue] = Field(default_factory=dict)
+    # JsonValue = any value legally serializable to JSON
+    # default_factory=dict -> create new dict on every new instance
+    metadata: dict[str, JsonValue] = Field(default_factory=dict) 
