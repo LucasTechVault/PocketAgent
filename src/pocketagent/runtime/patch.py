@@ -34,7 +34,7 @@ from pocketagent.runtime.contracts.tools import ToolCallRecord
 class RuntimeStatePatch(ContractModel):
     """Explicit changes to apply to one RuntimeState."""
     
-    messages_apend: list[Message] = Field(default_factory=list)
+    messages_append: list[Message] = Field(default_factory=list)
     tool_calls_append: list[ToolCallRecord] = Field(default_factory=list)
     artifacts_upsert: dict[str, ArtifactRef] = Field(default_factory=dict)
     artifacts_remove: set[NonEmptyStr] = Field(default_factory=set)
