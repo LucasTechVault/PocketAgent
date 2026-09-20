@@ -44,7 +44,7 @@ def reduce_state(
 
     # =====================================================================================
     #  APPEND semantics (Linear Timeline components)
-    new_state["messages"] = [*state.messages, *patch.messages_apend]
+    new_state["messages"] = [*state.messages, *patch.messages_append]
     new_state["tool_calls"] = [*state.tool_calls, *patch.tool_calls_append]
     
     # =====================================================================================

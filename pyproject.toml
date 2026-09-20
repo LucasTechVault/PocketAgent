@@ -9,6 +9,7 @@ description = "A milestone-driven project for learning agent systems engineering
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "httpx>=0.28.1",
     "pydantic>=2.11,<3",
     "pydantic-settings>=2.9,<3",
     "typer>=0.16,<1",
