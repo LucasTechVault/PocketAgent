@@ -315,3 +315,19 @@ The safety boundary of runtime (supervisor)
                      ▼
              RuntimeState(step=1)
 ```
+
+### M02 Summary:
+
+```
+model_gateway.py
+"How do I communicate with inference?"
+
+prompt.py
+"How do I present information to the model?"
+
+step.py
+"How do I advance state exactly once?"
+
+loop.py
+"Am I allowed to advance again?"
+```
