@@ -87,7 +87,7 @@ class VLLMModelGateway:
         timeout_seconds: float = 120.0
     ) -> None:
         self._client = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
+            base_url=f"{base_url.rstrip('/')}/",
             timeout=timeout_seconds
         )
     

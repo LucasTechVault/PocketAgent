@@ -38,6 +38,10 @@ class PromptRenderer(Protocol):
             - RAG injection
             - ReAct vs Plan & Execute
         - Task Workflow
+            - BasicPromptRenderer
+            - CodingPromptRenderer
+            - ResearchPromptRenderer
+            - ComputerUsePromptRenderer
         - Context Window Management
     """
     

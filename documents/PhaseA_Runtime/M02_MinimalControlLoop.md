@@ -157,6 +157,21 @@ system prompt + state.messages -> list[Message]
 1. ContextManager (M04)
 2. RAG
 
+**Importance of prompt version:**
+For the purpose of evaluation tracking.
+
+```
+Qwen 3B
++
+prompt v1
+    → 58% success
+
+Qwen 3B
++
+prompt v2
+    → 71% success
+```
+
 ---
 
 ## 3. One runtime step
