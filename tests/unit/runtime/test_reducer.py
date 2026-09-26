@@ -9,12 +9,12 @@ from pocketagent.runtime.contracts import (
     RunStatus,
     TraceContext,
 )
-from pocketagent.runtime.patch import RuntimeStatePatch
-from pocketagent.runtime.reducer import (
+from pocketagent.runtime.state.patch import RuntimeStatePatch
+from pocketagent.runtime.state.reducer import (
     StateReductionError,
     reduce_state,
 )
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.state import RuntimeState
 
 
 def make_state() -> RuntimeState:

@@ -104,3 +104,72 @@ Qwen
     ↓
 grounded explanation
 ```
+
+---
+
+### Changes required:
+
+```
+PocketAgent/
+├── examples/
+│   ├── m02_control_loop_smoke.py
+│   ├── m03_tool_runtime_smoke.py          # deterministic tool test
+│   └── m03_repo_agent_smoke.py            # Qwen + real repo tools
+│
+├── src/
+│   └── pocketagent/
+│       └── runtime/
+│           ├── contracts/                  # M01
+│           ├── model_gateway.py            # M02
+│           ├── prompt.py                   # M02
+│           ├── step.py                     # M02 → MODIFY for M03
+│           ├── loop.py                     # M02, mostly unchanged
+│           │
+│           └── tools/                       # M03 ← NEW
+│               ├── __init__.py
+│               ├── base.py
+│               ├── registry.py
+│               ├── gate.py
+│               ├── executor.py
+│               ├── runtime.py
+│               │
+│               └── repository/
+│                   ├── __init__.py
+│                   ├── workspace.py
+│                   └── tools.py
+│
+└── tests/
+    └── unit/
+        └── runtime/
+            └── tools/
+                ├── test_registry.py
+                ├── test_gate.py
+                ├── test_executor.py
+                └── test_repository_tools.py
+
+```
+
+**M03 core intuition:**
+
+```
+base.py
+    What IS a PocketAgent tool?
+
+registry.py
+    What tools exist?
+
+gate.py
+    Is this proposed action allowed?
+
+executor.py
+    Validate and actually invoke one allowed tool.
+
+runtime.py
+    Facade used by RuntimeStep.
+
+repository/workspace.py
+    What filesystem area is this worker allowed to inspect?
+
+repository/tools.py
+    Actual read-only repository capabilities.
+```

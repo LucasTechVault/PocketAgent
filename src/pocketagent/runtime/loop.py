@@ -19,9 +19,9 @@ from __future__ import annotations
 from pocketagent.runtime.contracts.common import RunStatus
 from pocketagent.runtime.contracts.termination import TerminationState
 
-from pocketagent.runtime.patch import RuntimeStatePatch
-from pocketagent.runtime.reducer import reduce_state
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.patch import RuntimeStatePatch
+from pocketagent.runtime.state.reducer import reduce_state
+from pocketagent.runtime.state.state import RuntimeState
 from pocketagent.runtime.step import RuntimeStep
 
 class ControlLoopConfigurationError(RuntimeError):

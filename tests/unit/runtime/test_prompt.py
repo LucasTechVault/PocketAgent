@@ -11,10 +11,10 @@ from pocketagent.runtime.contracts.common import (
 from pocketagent.runtime.contracts.trace import (
     TraceContext,
 )
-from pocketagent.runtime.prompt import (
+from pocketagent.runtime.prompts.basic import (
     BasicPromptRenderer,
 )
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.state import RuntimeState
 
 
 def make_state() -> RuntimeState:

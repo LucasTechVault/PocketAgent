@@ -20,8 +20,8 @@ Scalars (single value)
     step, status, current_node, budget -> replace
 """
 
-from pocketagent.runtime.patch import RuntimeStatePatch
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.patch import RuntimeStatePatch
+from pocketagent.runtime.state.state import RuntimeState
 
 class StateReductionError(RuntimeError):
     """Raised when a patch violates reducer-level state invariants."""

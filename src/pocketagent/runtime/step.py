@@ -55,15 +55,15 @@ from pocketagent.runtime.contracts.tools import (
     ToolCallProposal, ToolCallRecord
 )
 
-from pocketagent.runtime.model_gateway import (
+from pocketagent.runtime.models.base import (
     ModelGateway,
     ModelGatewayError
 )
 
-from pocketagent.runtime.patch import RuntimeStatePatch
-from pocketagent.runtime.prompt import PromptRenderer
-from pocketagent.runtime.reducer import reduce_state
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.patch import RuntimeStatePatch
+from pocketagent.runtime.prompts.base import PromptRenderer
+from pocketagent.runtime.state.reducer import reduce_state
+from pocketagent.runtime.state.state import RuntimeState
 
 @dataclass(frozen=True, slots=True)
 class RuntimeStepResult:

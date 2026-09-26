@@ -16,7 +16,7 @@ from pocketagent.runtime.contracts import (
     ToolResult,
     TraceContext,
 )
-from pocketagent.runtime.state import RuntimeState
+from pocketagent.runtime.state.state import RuntimeState
 
 
 def make_state() -> RuntimeState:

@@ -1,26 +1,29 @@
+# Orchestration
 from pocketagent.runtime.loop import (
     ControlLoop,
     ControlLoopConfigurationError,
 )
-from pocketagent.runtime.model_gateway import (
-    ModelGateway,
-    ModelGatewayError,
-    VLLMModelGateway,
-)
-from pocketagent.runtime.patch import RuntimeStatePatch
-from pocketagent.runtime.prompt import (
-    BasicPromptRenderer,
-    PromptRenderer,
-)
-from pocketagent.runtime.reducer import (
-    StateReductionError,
-    reduce_state,
-)
-from pocketagent.runtime.state import RuntimeState
+
 from pocketagent.runtime.step import (
     RuntimeStep,
     RuntimeStepResult,
 )
+
+# Models
+from pocketagent.runtime.models.base import ModelGateway, ModelGatewayError
+from pocketagent.runtime.models.vllm import VLLMModelGateway
+
+# Prompts
+from pocketagent.runtime.prompts.base import PromptRenderer
+from pocketagent.runtime.prompts.basic import BasicPromptRenderer
+
+# State
+from pocketagent.runtime.state.patch import RuntimeStatePatch
+from pocketagent.runtime.state.reducer import (
+    StateReductionError,
+    reduce_state,
+)
+from pocketagent.runtime.state.state import RuntimeState
 
 __all__ = [
     "BasicPromptRenderer",
