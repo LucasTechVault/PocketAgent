@@ -113,30 +113,46 @@ grounded explanation
 PocketAgent/
 ├── examples/
 │   ├── m02_control_loop_smoke.py
-│   ├── m03_tool_runtime_smoke.py          # deterministic tool test
-│   └── m03_repo_agent_smoke.py            # Qwen + real repo tools
+│   ├── m03_tool_runtime_smoke.py
+│   └── m03_repo_agent_smoke.py
 │
 ├── src/
 │   └── pocketagent/
 │       └── runtime/
 │           ├── contracts/                  # M01
-│           ├── model_gateway.py            # M02
-│           ├── prompt.py                   # M02
-│           ├── step.py                     # M02 → MODIFY for M03
-│           ├── loop.py                     # M02, mostly unchanged
 │           │
-│           └── tools/                       # M03 ← NEW
-│               ├── __init__.py
-│               ├── base.py
-│               ├── registry.py
-│               ├── gate.py
-│               ├── executor.py
-│               ├── runtime.py
-│               │
-│               └── repository/
-│                   ├── __init__.py
-│                   ├── workspace.py
-│                   └── tools.py
+│           ├── models/                     # M02
+│           │   ├── __init__.py
+│           │   ├── base.py
+│           │   └── vllm.py
+│           │
+│           ├── prompts/                    # M02
+│           │   ├── __init__.py
+│           │   ├── base.py
+│           │   └── basic.py
+│           │
+│           ├── state/                      # M01
+│           │   ├── __init__.py
+│           │   ├── state.py
+│           │   ├── patch.py
+│           │   └── reducer.py
+│           │
+│           ├── tools/                      # M03 ← NEW
+│           │   ├── __init__.py
+│           │   ├── base.py
+│           │   ├── registry.py
+│           │   ├── gate.py
+│           │   ├── executor.py
+│           │   ├── runtime.py
+│           │   │
+│           │   └── repository/
+│           │       ├── __init__.py
+│           │       ├── workspace.py
+│           │       └── tools.py
+│           │
+│           ├── step.py                     # MODIFY
+│           ├── loop.py                     # mostly unchanged
+│           └── __init__.py                 # MODIFY exports
 │
 └── tests/
     └── unit/
