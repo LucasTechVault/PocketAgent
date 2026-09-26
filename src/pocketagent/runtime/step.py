@@ -102,65 +102,6 @@ class RuntimeStep:
         self._prompt_renderer = prompt_renderer
         self._model_id = model_id
         self._max_output_tokens = max_output_tokens
-    
-    @staticmethod
-    def _gateway_error_patch(
-        *,
-        state: RuntimeState,
-        elapsed_ms: int,
-        error: ModelGatewayError
-    ) -> RuntimeStatePatch:
-        """Convert an interface-boundary failure into terminal state."""
-        
-        previous = state.budget.usage
-        
-        next_usage = BudgetUsage(
-            turns_used=previous.turns_used + 1,
-            tool_calls_used=previous.tool_calls_used,
-            wall_ms_used=previous.wall_ms_used + elapsed_ms,
-            input_tokens_used=previous.input_tokens_used,
-            output_tokens_used=previous.output_tokens_used,
-            cost_usd_used=previous.cost_usd_used
-        )
-        
-        next_budget = BudgetState(
-            limits=state.budget.limits,
-            usage=next_usage
-        )
-        
-        return RuntimeStatePatch(
-            step=state.step + 1,
-            budget=next_budget,
-            status=RunStatus.FAILED,
-            termination=TerminationState(
-                requested=True,
-                reason_code="MODEL_GATEWAY_ERROR",
-                detail=str(error)
-            )
-        )
-    
-    @staticmethod
-    def _budget_after_response(
-        *,
-        state: RuntimeState,
-        response: ModelResponse
-    ) -> BudgetState:
-        """Account for resources consumed by one model invocation."""
-        
-        previous_usage = state.budget.usage
-        next_usage = BudgetUsage(
-            turns_used= previous_usage.turns_used + 1,
-            tool_calls_used=previous_usage.tool_calls_used,
-            wall_ms_used=previous_usage.wall_ms_used + response.latency_ms,
-            input_tokens_used=previous_usage.input_tokens_used + response.usage.input_tokens,
-            output_tokens_used=previous_usage.output_tokens_used + response.usage.output_tokens,
-            cost_usd_used=previous_usage.cost_usd_used
-        )
-        
-        return BudgetState(
-            limits=state.budget.limits,
-            usage=next_usage
-        )
         
     async def execute(
         self,
@@ -339,5 +280,64 @@ class RuntimeStep:
                     "Model response could not be interpreted."
                     f"finish_reason={response.finish_reason.value}"
                 )
+            )
+        )
+
+    @staticmethod
+    def _budget_after_response(
+        *,
+        state: RuntimeState,
+        response: ModelResponse
+    ) -> BudgetState:
+        """Account for resources consumed by one model invocation."""
+        
+        previous_usage = state.budget.usage
+        next_usage = BudgetUsage(
+            turns_used= previous_usage.turns_used + 1,
+            tool_calls_used=previous_usage.tool_calls_used,
+            wall_ms_used=previous_usage.wall_ms_used + response.latency_ms,
+            input_tokens_used=previous_usage.input_tokens_used + response.usage.input_tokens,
+            output_tokens_used=previous_usage.output_tokens_used + response.usage.output_tokens,
+            cost_usd_used=previous_usage.cost_usd_used
+        )
+        
+        return BudgetState(
+            limits=state.budget.limits,
+            usage=next_usage
+        )
+        
+    @staticmethod
+    def _gateway_error_patch(
+        *,
+        state: RuntimeState,
+        elapsed_ms: int,
+        error: ModelGatewayError
+    ) -> RuntimeStatePatch:
+        """Convert an interface-boundary failure into terminal state."""
+        
+        previous = state.budget.usage
+        
+        next_usage = BudgetUsage(
+            turns_used=previous.turns_used + 1,
+            tool_calls_used=previous.tool_calls_used,
+            wall_ms_used=previous.wall_ms_used + elapsed_ms,
+            input_tokens_used=previous.input_tokens_used,
+            output_tokens_used=previous.output_tokens_used,
+            cost_usd_used=previous.cost_usd_used
+        )
+        
+        next_budget = BudgetState(
+            limits=state.budget.limits,
+            usage=next_usage
+        )
+        
+        return RuntimeStatePatch(
+            step=state.step + 1,
+            budget=next_budget,
+            status=RunStatus.FAILED,
+            termination=TerminationState(
+                requested=True,
+                reason_code="MODEL_GATEWAY_ERROR",
+                detail=str(error)
             )
         )
