@@ -30,7 +30,7 @@ Future Implementation:
 
 """
 
-from __future__ import __annotations__
+from __future__ import annotations
 
 import json
 from time import perf_counter
