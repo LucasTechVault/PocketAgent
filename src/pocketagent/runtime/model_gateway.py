@@ -277,5 +277,20 @@ class VLLMModelGateway:
             case _: return ModelFinishReason.OTHER
     
     async def aclose(self) -> None:
-        """Release HTTP resources"""
+        """Release HTTP resources."""
+
+        await self._client.aclose()
+
+    async def __aenter__(
+        self,
+    ) -> "VLLMModelGateway":
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: object,
+        exc: object,
+        traceback: object,
+    ) -> None:
+        await self.aclose()
         

@@ -136,6 +136,10 @@ How should selected information be formatted / instructed for model?
 - What is the template for system instructions?
 - How are role boundaries serialized?
 
+RuntimeState is everything the runtime know at that instant.
+Model should not receive whole RuntimeState object.
+A simple implements = system message + state.messages
+
 **PromptRenderer:**
 
 ```
