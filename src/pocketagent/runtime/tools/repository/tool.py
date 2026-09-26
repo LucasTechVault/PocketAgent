@@ -85,3 +85,59 @@ class ListDirectoryTool(RuntimeTool[ListDirectoryArgs]):
             "entries": entries,
             "truncated": truncated
         }
+
+class ReadFileArgs(BaseModel):
+    path: str
+    max_chars: int = Field(
+        default=20_000,
+        ge=100,
+        le=100_000
+    )
+
+class ReadFileTool(RuntimeTool[ReadFileArgs]):
+    name = "read_file"
+    description = (
+        "Read a UTF-8 text file from the repository. "
+        "Use for source code, configuration, and documentation."
+    )
+    effect = ToolEffect.READ_ONLY
+    args_model=ReadFileArgs
+    
+    def __init__(self, workspace: RepositoryWorkspace) -> None:
+        self._workspace = workspace
+    
+    async def execute(self, args: ReadFileArgs):
+        path = self._workspace.resolve(args.path)
+        
+        if not path.exists():
+            raise ToolExecutionError(
+                code="PATH_NOT_FOUND",
+                message=f"File not found: {args.path}"
+            )
+        
+        if not path.is_file():
+            raise ToolExecutionError(
+                code="NOT_A_FILE",
+                message=f"Not a file: {args.path}"
+            )
+        
+        try:
+            with path.open('r', encoding="utf-8", errors="replace") as file:
+                content = file.read(args.max_chars + 1)
+        except OSError as exc:
+            raise ToolExecutionError(
+                code="FILE_READ_ERROR",
+                message=str(exc)
+            ) from exc
+        
+        truncated = len(content) > args.max_chars
+        
+        if truncated:
+            content = content[:args.max_chars]
+        
+        return {
+            "path": args.path,
+            "content": content,
+            "truncated": truncated,
+            "chars_returned": len(content)
+        }
