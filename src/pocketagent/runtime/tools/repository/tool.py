@@ -141,3 +141,75 @@ class ReadFileTool(RuntimeTool[ReadFileArgs]):
             "truncated": truncated,
             "chars_returned": len(content)
         }
+    
+class ReadFileRangeArgs(BaseModel):
+    path: str
+    start_line: int = Field(ge=1)
+    end_line: int = Field(ge=1)
+    
+    @model_validator(mode="after")
+    def validate_range(self) -> Self:
+        if self.end_line < self.start_line:
+            raise ValueError("end_line must be >= start_line")
+        
+        line_count = self.end_line - self.start_line + 1
+        
+        if line_count > 400:
+            raise ValueError("A single range may not exceed 400 lines.")
+        
+        return self
+
+class ReadFileRangeTool(RuntimeTool[ReadFileRangeArgs]):
+    name = "read_file_range"
+    description = (
+        "Read a bounded range of lines from a repository of text file."
+        "Prefer this when a large file's relevant section is already known."
+    )
+    effect = ToolEffect.READ_ONLY
+    args_model = ReadFileRangeArgs
+    
+    def __init__(self, workspace: RepositoryWorkspace) -> None:
+        self._workspace = workspace
+    
+    async def execute(self, args: ReadFileRangeArgs):
+        path = self._workspace.resolve(args.path)
+        
+        if not path.exists():
+            raise ToolExecutionError(
+                code="PATH_NOT_FOUND",
+                message=f"File not found: {args.path}"
+            )
+        
+        if not path.is_file():
+            raise ToolExecutionError(
+                code="NOT_A_FILE",
+                message=f"Not a file: {args.path}"
+            )
+        
+        selected_lines = []
+        
+        try:
+            with path.open('f', encoding="utf-8", errors="replace") as file:
+                for line_number, line in enumerate(file, start=1):
+                    if line_number < args.start_line:
+                        continue
+                    if line_number > args.end_line:
+                        break
+                    
+                    selected_lines.append({
+                        "line_number": line_number,
+                        "text": line.rstrip('\n')
+                    })
+        except OSError as exc:
+            raise ToolExecutionError(
+                code="FILE_READ_ERROR",
+                message=str(exc)
+            ) from exc
+        
+        return {
+            "path": args.path,
+            "start_line": args.start_line,
+            "end_line": selected_lines[-1]["line_number"] if selected_lines else args.start_line - 1,
+            "lines": selected_lines
+        }
+        
