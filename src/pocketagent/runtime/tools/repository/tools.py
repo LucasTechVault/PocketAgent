@@ -212,4 +212,198 @@ class ReadFileRangeTool(RuntimeTool[ReadFileRangeArgs]):
             "end_line": selected_lines[-1]["line_number"] if selected_lines else args.start_line - 1,
             "lines": selected_lines
         }
-        
+
+class FindFilesArgs(BaseModel):
+    pattern: str
+    path: str = "."
+
+    max_results: int = Field(
+        default=100,
+        ge=1,
+        le=500,
+    )
+
+
+class FindFilesTool(
+    RuntimeTool[FindFilesArgs]
+):
+    name = "find_files"
+
+    description = (
+        "Find repository files whose names or relative paths match "
+        "a glob-like pattern such as '*.py', '*.kt', or 'build.gradle'."
+    )
+
+    effect = ToolEffect.READ_ONLY
+    args_model = FindFilesArgs
+
+    def __init__(
+        self,
+        workspace: RepositoryWorkspace,
+    ) -> None:
+        self._workspace = workspace
+
+    async def execute(
+        self,
+        args: FindFilesArgs,
+    ):
+        results: list[str] = []
+
+        for path in self._workspace.iter_files(
+            args.path
+        ):
+            relative = (
+                self._workspace.display_path(
+                    path
+                )
+            )
+
+            if (
+                fnmatch(
+                    path.name,
+                    args.pattern,
+                )
+                or fnmatch(
+                    relative,
+                    args.pattern,
+                )
+            ):
+                results.append(relative)
+
+                if len(results) >= args.max_results:
+                    return {
+                        "pattern": args.pattern,
+                        "path": args.path,
+                        "files": results,
+                        "truncated": True,
+                    }
+
+        return {
+            "pattern": args.pattern,
+            "path": args.path,
+            "files": results,
+            "truncated": False,
+        }
+
+class SearchTextArgs(BaseModel):
+    query: str = Field(
+        min_length=1,
+    )
+
+    path: str = "."
+
+    file_pattern: str = "*"
+
+    case_sensitive: bool = False
+
+    max_results: int = Field(
+        default=50,
+        ge=1,
+        le=200,
+    )
+
+
+class SearchTextTool(
+    RuntimeTool[SearchTextArgs]
+):
+    name = "search_text"
+
+    description = (
+        "Search repository text files for an exact text fragment. "
+        "Returns file paths, line numbers, and matching lines. "
+        "Useful for symbols, imports, dependency names, and config keys."
+    )
+
+    effect = ToolEffect.READ_ONLY
+    args_model = SearchTextArgs
+
+    def __init__(
+        self,
+        workspace: RepositoryWorkspace,
+    ) -> None:
+        self._workspace = workspace
+
+    async def execute(
+        self,
+        args: SearchTextArgs,
+    ):
+        matches = []
+
+        needle = (
+            args.query
+            if args.case_sensitive
+            else args.query.lower()
+        )
+
+        for path in self._workspace.iter_files(
+            args.path
+        ):
+            relative = (
+                self._workspace.display_path(
+                    path
+                )
+            )
+
+            if not (
+                fnmatch(
+                    path.name,
+                    args.file_pattern,
+                )
+                or fnmatch(
+                    relative,
+                    args.file_pattern,
+                )
+            ):
+                continue
+
+            try:
+                if path.stat().st_size > 2_000_000:
+                    continue
+
+                raw = path.read_bytes()
+
+            except OSError:
+                continue
+
+            # crude binary-file check
+            if b"\x00" in raw[:4096]:
+                continue
+
+            text = raw.decode(
+                "utf-8",
+                errors="replace",
+            )
+
+            for line_number, line in enumerate(
+                text.splitlines(),
+                start=1,
+            ):
+                haystack = (
+                    line
+                    if args.case_sensitive
+                    else line.lower()
+                )
+
+                if needle not in haystack:
+                    continue
+
+                matches.append(
+                    {
+                        "path": relative,
+                        "line_number": line_number,
+                        "line": line[:500],
+                    }
+                )
+
+                if len(matches) >= args.max_results:
+                    return {
+                        "query": args.query,
+                        "matches": matches,
+                        "truncated": True,
+                    }
+
+        return {
+            "query": args.query,
+            "matches": matches,
+            "truncated": False,
+        }
