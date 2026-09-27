@@ -160,16 +160,54 @@ class VLLMModelGateway:
 
     # Convert PocketAgent messages
     @staticmethod
-    def _message_to_payload(msg: Message) -> dict[str, Any]:
-        """Translate a PocketAgent Message."""
+    def _message_to_payload(message: Message) -> dict[str, Any]:
+        """Translate PocketAgent message into OpenAI-compatible form."""
         
-        if msg.role is MessageRole.TOOL:
-            raise ModelGatewayError("Tool-result messages are not supported in M02.")
-
-        return {
-            "role": msg.role.value,
-            "content": msg.content
+        # 1. Handle sending output (result) of tool already executed back to LLM.
+        if message.role is MessageRole.TOOL:
+            tool_call_id = message.metadata.get("tool_call_id")
+        
+            if not isinstance(tool_call_id, str):
+                raise ModelGatewayError("Tool message requires metadata.tool_call_id")
+            
+            return {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": message.content
+            }
+        
+        # 2. Handle reconstruct LLM prior toolcall proposal
+        # LLM APIs are stateless (every toolresult above must have this proposal)
+        payload: dict[str, Any] = {
+            "role": message.role.value,
+            "content": message.content
         }
+        
+        raw_tool_calls = message.metadata.get("tool_calls")
+        
+        if message.role is MessageRole.ASSISTANT and raw_tool_calls is not None:
+            if not isinstance(raw_tool_calls, list):
+                raise ModelGatewayError("assistant metadata.tool_calls must be a list.")
+            
+            provider_tool_calls = []
+            
+            for raw_tool in raw_tool_calls:
+                proposal = ToolCallProposal.model_validate(raw_tool)
+                
+                provider_tool_calls.append(
+                    {
+                        "id": proposal.call_id,
+                        "type": "function",
+                        "function": {
+                            "name": proposal.tool_name,
+                            "arguments": json.dumps(proposal.arguments)
+                        }
+                    }
+                )
+            
+            payload["tool_calls"] = provider_tool_calls
+
+        return payload
 
     # Translate Tool Schemas
     @staticmethod
