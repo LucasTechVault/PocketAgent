@@ -29,28 +29,57 @@ That responsibility belongs to the ControlLoop.
 
 from __future__ import annotations
 
+import json
+
 from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
-import json
 
-from pocketagent.runtime.contracts import (
-    ModelRequest, ModelResponse, ModelFinishReason,
-    TextOutput, Message, MessageRole,
+from pocketagent.runtime.contracts.budget import (
+    BudgetState,
+    BudgetUsage,
+)
+from pocketagent.runtime.contracts.common import (
+    Message,
+    MessageRole,
     RunStatus,
-    ToolCallProposal, ToolCallRecord,
+)
+from pocketagent.runtime.contracts.model import (
+    ModelFinishReason,
+    ModelRequest,
+    ModelResponse,
+    TextOutput,
+)
+from pocketagent.runtime.contracts.termination import (
     TerminationState,
-    BudgetState, BudgetUsage
+)
+from pocketagent.runtime.contracts.tools import (
+    ToolCallProposal,
+    ToolCallRecord,
 )
 
-from pocketagent.runtime import (
+from pocketagent.runtime.models.base import (
     ModelGateway,
-    ModelGatewayError
+    ModelGatewayError,
 )
 
-from pocketagent.runtime import PromptRenderer
-from pocketagent.runtime import RuntimeState, RuntimeStatePatch, reduce_state
-from pocketagent.runtime.tools import ToolRuntime
+from pocketagent.runtime.prompts.base import (
+    PromptRenderer,
+)
+
+from pocketagent.runtime.state.patch import (
+    RuntimeStatePatch,
+)
+from pocketagent.runtime.state.reducer import (
+    reduce_state,
+)
+from pocketagent.runtime.state.state import (
+    RuntimeState,
+)
+
+from pocketagent.runtime.tools.runtime import (
+    ToolRuntime,
+)
 
 @dataclass(frozen=True, slots=True)
 class RuntimeStepResult:
