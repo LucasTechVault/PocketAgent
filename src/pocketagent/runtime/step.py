@@ -32,38 +32,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from time import perf_counter
 from uuid import uuid4
+import json
 
-from pocketagent.runtime.contracts.budget import (
-    BudgetState,
-    BudgetUsage
+from pocketagent.runtime.contracts import (
+    ModelRequest, ModelResponse, ModelFinishReason,
+    TextOutput, Message, MessageRole,
+    RunStatus,
+    ToolCallProposal, ToolCallRecord,
+    TerminationState,
+    BudgetState, BudgetUsage
 )
 
-from pocketagent.runtime.contracts.common import (
-    Message, MessageRole,
-    RunStatus
-)
-
-from pocketagent.runtime.contracts.model import (
-    ModelFinishReason,
-    ModelRequest, ModelResponse,
-    TextOutput
-)
-
-from pocketagent.runtime.contracts.termination import TerminationState
-
-from pocketagent.runtime.contracts.tools import (
-    ToolCallProposal, ToolCallRecord
-)
-
-from pocketagent.runtime.models.base import (
+from pocketagent.runtime import (
     ModelGateway,
     ModelGatewayError
 )
 
-from pocketagent.runtime.state.patch import RuntimeStatePatch
-from pocketagent.runtime.prompts.base import PromptRenderer
-from pocketagent.runtime.state.reducer import reduce_state
-from pocketagent.runtime.state.state import RuntimeState
+from pocketagent.runtime import PromptRenderer
+from pocketagent.runtime import RuntimeState, RuntimeStatePatch, reduce_state
+from pocketagent.runtime.tools import ToolRuntime
 
 @dataclass(frozen=True, slots=True)
 class RuntimeStepResult:
@@ -90,6 +77,7 @@ class RuntimeStep:
         model_gateway: ModelGateway, # Receives the interface to keep generic (dependency inversion)
         prompt_renderer: PromptRenderer,
         model_id: str,
+        tool_runtime: ToolRuntime | None = None,
         max_output_tokens: int = 1024
     ) -> None:
         if not model_id.strip():
@@ -101,6 +89,7 @@ class RuntimeStep:
         self._model_gateway = model_gateway
         self._prompt_renderer = prompt_renderer
         self._model_id = model_id
+        self._tool_runtime = tool_runtime
         self._max_output_tokens = max_output_tokens
         
     async def execute(
@@ -113,11 +102,16 @@ class RuntimeStep:
     
         rendered_messages = self._prompt_renderer.render(state)
         
+        tool_definitions = (
+            self._tool_runtime.definitions()
+            if self._tool_runtime is not None else []
+        )
+        
         request = ModelRequest(
             request_id=f"request-{uuid4()}",
             model_id=self._model_id,
             messages=rendered_messages,
-            tools=[], # M03 introduces tools 26 Sep 2026 12:04
+            tools=tool_definitions,
             max_output_tokens = self._max_output_tokens,
             metadata={
                 "run_id": state.run_id,
@@ -148,7 +142,7 @@ class RuntimeStep:
                 next_state=next_state
             )
         
-        patch = self._response_to_patch(
+        patch = await self._response_to_patch(
             state=state,
             response=res
         )
@@ -163,7 +157,7 @@ class RuntimeStep:
         )
     
     # Handling response (render response)
-    def _response_to_patch(
+    async def _response_to_patch(
         self,
         *,
         state: RuntimeState,
@@ -235,22 +229,54 @@ class RuntimeStep:
         
         # 5. Handle ToolCallProposal
         if tool_proposals:
-            return RuntimeStatePatch(
-                step=state.step + 1,
-                messages_append=messages_append,
-                tool_calls_append=tool_records,
-                budget=next_budget,
-                status=RunStatus.FAILED,
-                termination=TerminationState(
-                    requested=True,
-                    reason_code="M02_TOOLCALL_UNSUPPORTED",
-                    detail=(
-                        "The model proposed a tool call,"
-                        "but tool execution begins in M03."
+            
+            if self._tool_runtime is None:
+                return RuntimeStatePatch(
+                    step=state.step + 1,
+                    budget=next_budget,
+                    status=RunStatus.FAILED,
+                    termination=TerminationState(
+                        requested=True,
+                        reason_code="TOOL_RUNTIME_UNAVAILABLE",
+                        detail=(
+                            "The model proposed a tool call but "
+                            "ToolRuntime is not configured."
+                        )
                     )
                 )
+            
+            tool_records = await self._tool_runtime.execute_all(tool_proposals)
+
+            assistant_message = Message(
+                message_id=f"model:{response.response_id}",
+                role=MessageRole.ASSISTANT,
+                content=combined_text,
+                metadata={
+                    "model_id": response.model_id,
+                    "response_id": response.response_id,
+                    "tool_calls": [
+                        proposal.model_dump(mode="json") for proposal in tool_proposals
+                    ]
+                }
             )
-        
+            
+            tool_messages = [self._tool_record_to_message(rec) for rec in tool_records]
+            next_budget = self._budget_after_tools(
+                budget=next_budget,
+                processed_tool_calls=len(tool_records)
+            )
+            
+            return RuntimeStatePatch(
+                step=state.step + 1,
+                messages_append=[
+                    assistant_message,
+                    *tool_messages
+                ],
+                tool_calls_append=tool_records,
+                budget=next_budget,
+                status=RunStatus.RUNNING
+            )
+            
         # 6. Handle remaining model output scenario
         if response.finish_reason is ModelFinishReason.ERROR:
             reason_code = "MODEL_RESPONSE_ERROR"
@@ -284,6 +310,45 @@ class RuntimeStep:
         )
 
     @staticmethod
+    def _tool_record_to_message(record: ToolCallRecord) -> Message:
+        """Turn runtime tool truth into model-visible observation."""
+        
+        if record.result is not None:
+            payload = {
+                "status": record.status.value,
+                "output": record.result.output
+            }
+        
+        elif record.error is not None:
+            payload = {
+                "status": record.status.value,
+                "error": {
+                    "code": record.error.code,
+                    "message": record.error.message,
+                    "retryable": record.error.retryable
+                }
+            }
+        
+        else:
+            payload = {
+                "status": record.status.value
+            }
+        
+        return Message(
+            message_id=f"tool:{record.proposal.call_id}",
+            role=MessageRole.TOOL,
+            content=json.dumps(
+                payload,
+                ensure_ascii=False
+            ),
+            metadata={
+                "tool_call_id": record.proposal.call_id,
+                "tool_name": record.proposal.tool_name
+            }
+        )
+    
+    # ============================== Budget Related ==============================    
+    @staticmethod
     def _budget_after_response(
         *,
         state: RuntimeState,
@@ -293,7 +358,7 @@ class RuntimeStep:
         
         previous_usage = state.budget.usage
         next_usage = BudgetUsage(
-            turns_used= previous_usage.turns_used + 1,
+            turns_used= previous_usage.turns_used + 1, # response considered 1 turn
             tool_calls_used=previous_usage.tool_calls_used,
             wall_ms_used=previous_usage.wall_ms_used + response.latency_ms,
             input_tokens_used=previous_usage.input_tokens_used + response.usage.input_tokens,
@@ -305,6 +370,31 @@ class RuntimeStep:
             limits=state.budget.limits,
             usage=next_usage
         )
+    
+    @staticmethod
+    def _budget_after_tools(
+        *,
+        budget: BudgetState,
+        processed_tool_calls: int
+    ) -> BudgetState:
+        
+        previous_usage = budget.usage
+        
+        next_usage = BudgetUsage(
+            turns_used=previous_usage.turns_used, # toolcall is same turn
+            tool_calls_used=previous_usage.tool_calls_used + processed_tool_calls,
+            wall_ms_used=previous_usage.wall_ms_used,
+            input_tokens_used=previous_usage.input_tokens_used,
+            output_tokens_used=previous_usage.output_tokens_used,
+            cost_usd_used=previous_usage.cost_usd_used
+        )
+        
+        return BudgetState(
+            limits=budget.limits,
+            usage=next_usage
+        )
+    
+    # ============================================================
         
     @staticmethod
     def _gateway_error_patch(
